@@ -8,42 +8,41 @@ import kotlin.streams.toList
 
 fun main() {
     val geometryFactory = GeometryFactory()
-    val csvRepository = CsvRepository()
+    val csvRepository = CsvRepository(geometryFactory)
 
     val routes: MutableList<Route> = csvRepository.getRoutesFromFile()
 
     val allSimplified = routes.stream().map { route ->
-        val geom = route.geom
-        var simplified = DouglasPeuckerSimplifier.simplify(geom, 0.001)
+        var simplified = DouglasPeuckerSimplifier.simplify(route.geom, 0.001)
         if (route.fromPort == "DEHAM") {
             simplified = simplified.reverse()
         }
         simplified
     }.toList()
 
-    val all: MutableList<List<Point>> = ArrayList()
+    val probesPerRoute: MutableList<List<Point>> = ArrayList()
 
     allSimplified.forEach(Consumer { simpleRoute: Geometry? ->
         val pointsOnRoute: MutableList<Point> = ArrayList()
         val lengthIndexed = LengthIndexedLine(simpleRoute)
-        val endIndex1 = lengthIndexed.endIndex
+        val endIndex = lengthIndexed.endIndex
         for (i in 0..100) {
-            val v = endIndex1 * (i / 100.0)
-            val coord = lengthIndexed.extractPoint(v)
+            val indexOfProbe = endIndex * (i / 100.0)
+            val coord = lengthIndexed.extractPoint(indexOfProbe)
             pointsOnRoute.add(geometryFactory.createPoint(coord))
         }
-        all.add(pointsOnRoute)
+        probesPerRoute.add(pointsOnRoute)
     })
 
-    val coordinateList: MutableList<Coordinate> = ArrayList()
+    val finalCoordinates: MutableList<Coordinate> = ArrayList()
     for (i in 0..100) {
-        val averageX = all.stream().mapToDouble { x: List<Point> -> x[i].x }.average()
-        val averageY = all.stream().mapToDouble { x: List<Point> -> x[i].y }.average()
-        coordinateList.add(Coordinate(averageX.asDouble, averageY.asDouble))
+        val averageX = probesPerRoute.stream().mapToDouble { x: List<Point> -> x[i].x }.average()
+        val averageY = probesPerRoute.stream().mapToDouble { x: List<Point> -> x[i].y }.average()
+        finalCoordinates.add(Coordinate(averageX.asDouble, averageY.asDouble))
     }
 
-    val lineString: LineString = geometryFactory.createLineString(coordinateList.toTypedArray())
-    println(lineString.toText())
+    val finaLTrajectory: LineString = geometryFactory.createLineString(finalCoordinates.toTypedArray())
+    println(finaLTrajectory.toText())
 }
 
 
